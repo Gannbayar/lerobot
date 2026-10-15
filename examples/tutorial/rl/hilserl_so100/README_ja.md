@@ -244,20 +244,18 @@ lerobot-find-joint-limits \
 }
 ```
 
-上の `X_MIN` などは説明用の文字列なので、計測した数値に置き換えてから実行します。最初は `push_to_hub` を `false` のままにして、データをローカルに保存します。
+上の `X_MIN` などは説明用の文字列なので、3節で実測した数値に置き換えてから実行します。カメラ番号も `lerobot-find-cameras opencv` の結果に合わせます。これは実機カメラを使う設定です。MuJoCoの `wrist_camera` はこのデータ収録には使われません。最初は `push_to_hub` を `false` のままにして、データをローカルに保存します。
 
 ```bash
 python -m lerobot.rl.gym_manipulator \
   --config_path examples/tutorial/rl/hilserl_so100/reward_record.json
 ```
 
-記録中は **R1 を押しながら** スティックと L2/R2 でロボットを操作します。初回は目標を「キューブをつかんで持ち上げる」など、5～10秒ほどで終わる単純なタスクにします。
+記録が始まったら、スティックと L2/R2 をそのまま使ってロボットを操作します（R1 の介入操作はactor学習中に使います）。初回は「キューブをつかんで持ち上げる」など、5～10秒ほどで完了するタスクにします。コップに砂糖を入れる場合は、成功条件を「砂糖ブロックがコップの中に入った状態」など、カメラ画像で判定できる形に決めてください。
 
-**最初の収録目安：20エピソード（成功 10、失敗 10）** とします。これは始めるための実務上の目安です。公式ガイドは合計20エピソードの例を載せていますが、成功と失敗の固定比率は指定していません。
+報酬分類器が学習するラベルは各フレームの `reward` です。成功した状態をカメラに映して Triangle を押すと、その時点のフレームに成功ラベル `1` が付きます。設定の `terminate_on_success: false` により、Triangleを押しても収録は続きます。成功状態を保ち、ボタンを一度離してから何度か押すと、成功画像を追加できます。失敗状態ではCrossを押してエピソードを終了します。失敗側のフレームは `0` になります。Squareを押すと現在のエピソードを破棄して取り直します。
 
-報酬分類器が学習するラベルはエピソード全体ではなく、各フレームの `reward` です。成功した状態を保って Triangle を押し、いったん離してから何度か押し直すと、その瞬間の画像に成功ラベル `1` が付きます。この設定では `terminate_on_success: false` なので Triangle だけではエピソードが終わりません。成功画像を付け終えたら Cross を押して次へ進みます。失敗状態では、その状態をカメラに映して Cross を押します。Triangle を1回押しただけだと成功ラベルは原則1フレームだけで、残りのフレームは `0` です。
-
-枚数は「成功エピソード10本、失敗エピソード10本」だけで判断せず、まず **成功ラベル付き画像を100枚程度** 集め、失敗・未成功の画像も少なくとも同程度になるよう、物体位置や失敗の仕方に変化をつけて追加収録します。100枚はこの教材での初期目安で、公式に定められた必須数ではありません。予測が不安定なら両方の例を増やします。
+最初は **20エピソード（成功10、失敗10程度）** を目安にし、成功・失敗それぞれで物体位置や動作に変化をつけます。成功10・失敗10は固定ルールではありません。まず成功ラベル付きフレームを100枚程度集め、成功状態を何度か撮影してください。100枚も開始時の目安で、公式に定められた必須数ではありません。予測が不安定なら両方の例を増やします。
 
 #### 5. カメラ画像の ROI を切り出す
 
@@ -270,7 +268,7 @@ python -m lerobot.rl.crop_dataset_roi \
   --task "pick up the cube and lift it"
 ```
 
-各カメラ画像で範囲をドラッグし、`c` で確定します。出力データセットは `local/so100_reward_labels_cropped_resized`、ローカルでは `data/so100_reward_labels_cropped_resized` です。出力の `meta/crop_params.json` にある `[top, left, height, width]` を、後述する actor/learner 設定の `crop_params_dict` にも設定します。
+`--task` にはタスクを表す自然文を指定します。各カメラ画像で、アーム先端・対象物・ゴールが入る範囲をドラッグして `c` で確定します。出力データセットは `local/so100_reward_labels_cropped_resized`、ローカルでは `data/so100_reward_labels_cropped_resized` です。出力の `meta/crop_params.json` にある `[top, left, height, width]` を、後述するactor/learner設定の `crop_params_dict` にも設定します。ROI選択の流れは[公式ガイド](https://huggingface.co/docs/lerobot/en/hilserl#processing-the-dataset)も参照してください。
 
 #### 6. 報酬分類器を学習する
 
@@ -315,11 +313,11 @@ python -m lerobot.rl.crop_dataset_roi \
 ```
 
 ```bash
-lerobot-train \
+CUDA_VISIBLE_DEVICES=0 lerobot-train \
   --config_path examples/tutorial/rl/hilserl_so100/reward_classifier_train.json
 ```
 
-学習後のモデルは `outputs/so100_reward_classifier/checkpoints/last/pretrained_model` に保存されます。2値分類の予測が成功画像と失敗画像を見分けるか、数枚ずつ目視で確認します。
+この設定では `policy.device` を `cuda` にしてA6000のGPUで学習します。A6000が2枚ある場合でも、分類器学習はまず1枚で実行すれば十分です。学習後のモデルは `outputs/so100_reward_classifier/checkpoints/last/pretrained_model` に保存されます。成功画像と失敗画像を何枚か見せ、予測が正しく分かれるか確認してからactor/learner設定の `env.processor.reward_classifier.pretrained_path` にこのパスを設定します。報酬分類器は成功判定を自動化するためのもので、公式ガイドでは手動ラベルで最初のRL実験を始める方法も案内しています。[公式ガイド](https://huggingface.co/docs/lerobot/en/hilserl#training-a-reward-classifier)
 
 #### 7. actor / learner 用設定を作る
 
