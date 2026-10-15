@@ -77,24 +77,26 @@ def build_model(scene_path: Path) -> mujoco.MjModel:
         "front_camera", lateral_mm=400, forward_mm=140, height_mm=125, fovy=75
     )
 
-    # Keep the wrist camera's orientation fixed in the gripper frame. Its optical
-    # axis points at the grasp point, so wrist_roll rotates the camera together
-    # with the gripper instead of re-aiming it in world coordinates.
+    # Mount the camera on the wrist link at the location marked in the reference
+    # photo. The camera aims at a point on the gripper, which moves with wrist_roll.
+    # Because the mount is upstream of wrist_roll, rolling the gripper does not
+    # mechanically roll the camera with it.
+    wrist = spec.body("wrist")
     gripper = spec.body("gripper")
-    wrist_camera_pos = [0.0, 0.035, 0.055]
-    wrist_camera_aim = [-0.0079, -0.000218121, -0.0981274]
-    wrist_camera_zaxis = [
-        wrist_camera_pos[axis] - wrist_camera_aim[axis] for axis in range(3)
-    ]
-    wrist_camera_zaxis_length = math.sqrt(sum(value**2 for value in wrist_camera_zaxis))
-    wrist_camera_zaxis = [value / wrist_camera_zaxis_length for value in wrist_camera_zaxis]
-    gripper.add_camera(
+    gripper.add_body(
+        name="wrist_camera_focus",
+        pos=[-0.0079, -0.000218121, -0.0981274],
+    )
+    wrist.add_camera(
         name="wrist_camera",
-        # Local +Z moves it sideways 20 mm from the previous placement to clear the arm.
-        pos=wrist_camera_pos,
-        zaxis=wrist_camera_zaxis,
+        # Approximate mount at the circled wrist location, raised and offset to
+        # keep the camera about 20 mm clear of the arm. Coordinates are wrist-local.
+        pos=[0.02, -0.035, 0.045],
         fovy=70.0,
     )
+    wrist_camera = spec.camera("wrist_camera")
+    wrist_camera.mode = mujoco.mjtCamLight.mjCAMLIGHT_TARGETBODY
+    wrist_camera.targetbody = "wrist_camera_focus"
 
     # Dimensions supplied by the user: 73 mm top, 50 mm bottom, 80 mm tall.
     cup_height = 0.080
