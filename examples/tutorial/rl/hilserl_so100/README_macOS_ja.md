@@ -1,0 +1,58 @@
+# macOSでSO-101 / HIL-SERLシミュレーション
+
+この手順は MuJoCo のGUIを開けるmacOS向けです。SO-101のシーン表示と、HIL-SERL公式シミュレーターは別の環境です。
+
+## 1. LeRobot環境を準備する
+
+LeRobotリポジトリのルートで仮想環境を有効にし、シミュレーション用依存関係を入れます。
+
+```bash
+cd /path/to/lerobot
+python3 -m venv .venv  # 既に .venv がある場合は飛ばす
+source .venv/bin/activate
+python -m pip install -e ".[hilserl]"
+```
+
+## 2. SO-101モデルを取得する
+
+公式の [SO-ARM100リポジトリ](https://github.com/TheRobotStudio/SO-ARM100)にSO-101のMuJoCoモデルがあります。まだ取得していない場合だけ実行します。
+
+```bash
+cd ~
+git clone --depth 1 https://github.com/TheRobotStudio/SO-ARM100.git
+```
+
+## 3. 紙コップ・コーヒー・砂糖ブロックを含むシミュレーションを開く
+
+```bash
+cd /path/to/lerobot
+source .venv/bin/activate
+python examples/tutorial/rl/hilserl_so100/simulate_so101_coffee.py
+```
+
+SO-101、テーブル、紙コップ、コーヒー、砂糖ブロックがMuJoCoビューアに表示されます。ジョイントはビューアの **Control** パネルで動かします。別の場所にSO-ARM100を置いた場合は、シーンXMLのパスを指定します。
+
+```bash
+cd /path/to/lerobot
+source .venv/bin/activate
+python examples/tutorial/rl/hilserl_so100/simulate_so101_coffee.py \
+  --scene "$HOME/SO-ARM100/Simulation/SO101/scene.xml"
+```
+
+紙コップは白い壁と底を組み合わせた簡易形状です。コーヒーは色と質量を持つ剛体で、液体の揺れやこぼれは計算しません。砂糖ブロックは約18 mm角の剛体です。このシーンはSO-101の姿勢や物体との接触を確認するもので、HIL-SERL用タスクや学習設定は含みません。
+
+## 4. HIL-SERLのシミュレーションを開く
+
+LeRobotの `gym_hil` 環境はSO-101ではなくFranka Pandaです。macOSでMuJoCoの `launch_passive` を使うため、こちらは `python` ではなく `mjpython` で起動します。
+
+```bash
+cd /path/to/lerobot
+source .venv/bin/activate
+mjpython -m lerobot.rl.gym_manipulator \
+  --config_path examples/tutorial/rl/hilserl_so100/gym_hil_sim.json
+```
+
+この画面はHIL-SERLの操作手順を試すためのPanda用です。SO-101のモデルを動かしたい場合は、上の専用シーンを使ってください。詳細なHIL-SERL実機手順と安全上の注意は[共通ガイド](README_ja.md)を参照してください。
+
+このMacの実行ログではPanda版が制御ループ開始直後に `zsh: trace trap` で終了しました。SO-101のモデルシーンとは別の問題です。同じエラーが出る場合は、HIL-SERLシミュレーターはLinuxデスクトップで起動してください。
+
