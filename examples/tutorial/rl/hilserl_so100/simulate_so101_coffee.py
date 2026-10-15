@@ -29,7 +29,9 @@ def build_model(scene_path: Path) -> mujoco.MjModel:
     mat_columns = 22
     mat_rows = 16
     mat_square = 0.025
-    mat_center_x = -0.225
+    # The SO-101 reaches toward +X in its default pose, so the work mat belongs
+    # in front of the base on that side (the previous sign put it behind the arm).
+    mat_center_x = 0.225
     mat_center_y = 0.0
     for column in range(mat_columns):
         for row in range(mat_rows):
@@ -49,13 +51,13 @@ def build_model(scene_path: Path) -> mujoco.MjModel:
             )
 
     # The layout diagram gives camera offsets from the robot base in top view:
-    # horizontal is the robot's lateral axis and down-page points along -X.
+    # horizontal is the robot's lateral axis and down-page points along +X.
     camera_focus = world.add_body(name="camera_focus", pos=[mat_center_x, mat_center_y, 0.035])
 
     def add_layout_camera(name: str, lateral_mm: float, forward_mm: float, height_mm: float) -> None:
         camera = world.add_camera(
             name=name,
-            pos=[-forward_mm / 1000.0, lateral_mm / 1000.0, height_mm / 1000.0],
+            pos=[forward_mm / 1000.0, lateral_mm / 1000.0, height_mm / 1000.0],
         )
         camera.mode = mujoco.mjtCamLight.mjCAMLIGHT_TARGETBODY
         camera.targetbody = "camera_focus"
@@ -72,7 +74,7 @@ def build_model(scene_path: Path) -> mujoco.MjModel:
     wall_thickness = 0.0015
 
     # A lightweight paper cup resting on the scene's existing ground plane.
-    cup = world.add_body(name="paper_cup", pos=[-0.29, -0.13, 0.0])
+    cup = world.add_body(name="paper_cup", pos=[0.29, -0.13, 0.0])
     cup.add_freejoint(name="paper_cup_free")
     cup.add_geom(
         name="cup_bottom",
@@ -117,7 +119,7 @@ def build_model(scene_path: Path) -> mujoco.MjModel:
         rgba=[0.20, 0.075, 0.025, 1.0],
     )
 
-    sugar = world.add_body(name="sugar_block", pos=[-0.19, 0.13, 0.009])
+    sugar = world.add_body(name="sugar_block", pos=[0.19, 0.13, 0.009])
     sugar.add_freejoint(name="sugar_block_free")
     sugar.add_geom(
         name="sugar_cube",
