@@ -16,7 +16,7 @@
 
 **LeRobot** aims to provide models, datasets, and tools for real-world robotics in PyTorch. The goal is to lower the barrier to entry so that everyone can contribute to and benefit from shared datasets and pretrained models.
 
-日本語教材: [SO-101 で学ぶ HIL-SERL](examples/tutorial/rl/hilserl_so101/README_ja.md)
+日本語教材: [SO-100 で学ぶ HIL-SERL](examples/tutorial/rl/hilserl_so100/README_ja.md)
 
 🤗 A hardware-agnostic, Python-native interface that standardizes control across diverse platforms, from low-cost arms (SO-100) to humanoids.
 
