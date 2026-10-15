@@ -19,9 +19,49 @@ DEFAULT_SCENE = Path.home() / "SO-ARM100/Simulation/SO101/scene.xml"
 
 
 def build_model(scene_path: Path) -> mujoco.MjModel:
-    """Load the SO-101 scene and add cup, coffee, and sugar on its ground."""
+    """Load the SO-101 scene and add the photographed work area and cameras."""
     spec = mujoco.MjSpec.from_file(str(scene_path.expanduser()))
     world = spec.worldbody
+
+    # Approximate the blue-and-black checker mat shown in the user's photos.
+    # It is visual only; the official scene's floor remains the contact surface.
+    mat_columns = 18
+    mat_rows = 14
+    mat_square = 0.030
+    mat_center_x = 0.27
+    mat_center_y = 0.0
+    for column in range(mat_columns):
+        for row in range(mat_rows):
+            is_blue = (column + row) % 2 == 0
+            world.add_geom(
+                name=f"checker_mat_{column}_{row}",
+                type=mujoco.mjtGeom.mjGEOM_BOX,
+                pos=[
+                    mat_center_x + (column - (mat_columns - 1) / 2) * mat_square,
+                    mat_center_y + (row - (mat_rows - 1) / 2) * mat_square,
+                    0.00015,
+                ],
+                size=[mat_square / 2, mat_square / 2, 0.00015],
+                contype=0,
+                conaffinity=0,
+                rgba=[0.02, 0.37, 0.78, 1.0] if is_blue else [0.012, 0.016, 0.023, 1.0],
+            )
+
+    # A hidden target lets fixed cameras point at the work area.
+    camera_focus = world.add_body(name="camera_focus", pos=[0.27, 0.0, 0.035])
+
+    def add_target_camera(parent, name: str, pos: list[float]) -> None:
+        camera = parent.add_camera(name=name, pos=pos)
+        camera.mode = mujoco.mjtCamLight.mjCAMLIGHT_TARGETBODY
+        camera.targetbody = "camera_focus"
+
+    # Approximate the overhead boom camera and the oblique side view in the photos.
+    add_target_camera(world, "top_camera", [0.27, 0.0, 0.58])
+    add_target_camera(world, "side_camera", [0.56, -0.36, 0.27])
+
+    # The wrist view moves with the SO-101 gripper, like a wrist-mounted camera.
+    gripper_body = next(body for body in spec.bodies if body.name == "gripper")
+    add_target_camera(gripper_body, "wrist_camera", [-0.008, 0.0, -0.075])
 
     # Dimensions supplied by the user: 73 mm top, 50 mm bottom, 80 mm tall.
     cup_height = 0.080
@@ -106,7 +146,10 @@ def main() -> None:
 
     model = build_model(scene_path)
     data = mujoco.MjData(model)
-    print("SO-101 coffee scene ready (no table). Use the MuJoCo Control panel to move the joints; close the viewer to exit.")
+    print(
+        "SO-101 coffee scene ready. Use Control to move the joints and the Camera menu "
+        "to choose top_camera, side_camera, or wrist_camera; close the viewer to exit."
+    )
     mujoco.viewer.launch(model, data)
 
 
