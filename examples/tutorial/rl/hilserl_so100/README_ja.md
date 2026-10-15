@@ -33,10 +33,10 @@ cd ~
 git clone --depth 1 https://github.com/TheRobotStudio/SO-ARM100.git
 cd /Volumes/ssd_sata/lerobot
 source .venv/bin/activate
-mjpython -m mujoco.viewer --mjcf="$HOME/SO-ARM100/Simulation/SO101/scene.xml"
+python -m mujoco.viewer --mjcf="$HOME/SO-ARM100/Simulation/SO101/scene.xml"
 ```
 
-MuJoCo のシーンに SO-101 のモデルが表示されます。このビューアには HIL-SERL の Panda 用キーボード操作や、学習・データ収集機能はありません。LeIsaac / Isaac Lab には SO-101 のタスク環境もありますが、公式セットアップは CUDA 対応環境を使います。M2 Mac で動かす場合は公式の[クラウドシミュレーション案内](https://github.com/huggingface/lerobot/blob/main/docs/source/envhub_leisaac.mdx)を確認してください。
+MuJoCo のシーンに SO-101 のモデルが表示されます。これは通常の MuJoCo viewer を起動するため `python` を使います。`mjpython` が必要なのは、HIL-SERL が使う `launch_passive` を macOS から起動するときです。このビューアには HIL-SERL の Panda 用キーボード操作や、学習・データ収集機能はありません。LeIsaac / Isaac Lab には SO-101 のタスク環境もありますが、公式セットアップは CUDA 対応環境を使います。M2 Mac で動かす場合は公式の[クラウドシミュレーション案内](https://github.com/huggingface/lerobot/blob/main/docs/source/envhub_leisaac.mdx)を確認してください。
 
 ### HIL-SERL の操作をシミュレーションする
 
