@@ -19,60 +19,63 @@ DEFAULT_SCENE = Path.home() / "SO-ARM100/Simulation/SO101/scene.xml"
 
 
 def build_model(scene_path: Path) -> mujoco.MjModel:
-    """Load the SO-101 scene and add a small table-top coffee task."""
+    """Load the SO-101 scene and add cup, coffee, and sugar on its ground."""
     spec = mujoco.MjSpec.from_file(str(scene_path.expanduser()))
     world = spec.worldbody
 
-    # The table rests on the scene's existing ground plane.
-    world.add_geom(
-        name="coffee_table",
-        type=mujoco.mjtGeom.mjGEOM_BOX,
-        pos=[0.34, 0.0, 0.035],
-        size=[0.20, 0.22, 0.035],
-        rgba=[0.42, 0.30, 0.20, 1.0],
-        friction=[1.0, 0.005, 0.0001],
-    )
+    # Dimensions supplied by the user: 73 mm top, 50 mm bottom, 80 mm tall.
+    cup_height = 0.080
+    bottom_radius = 0.025
+    top_radius = 0.0365
+    wall_thickness = 0.0015
 
-    # A lightweight paper cup approximated by eight wall panels and a bottom.
-    cup = world.add_body(name="paper_cup", pos=[0.25, -0.04, 0.07])
+    # A lightweight paper cup resting on the scene's existing ground plane.
+    cup = world.add_body(name="paper_cup", pos=[0.25, -0.04, 0.0])
     cup.add_freejoint(name="paper_cup_free")
     cup.add_geom(
         name="cup_bottom",
         type=mujoco.mjtGeom.mjGEOM_CYLINDER,
-        pos=[0.0, 0.0, 0.0025],
-        size=[0.033, 0.0025],
+        pos=[0.0, 0.0, 0.0015],
+        size=[bottom_radius - wall_thickness, 0.0015],
         density=450.0,
         rgba=[0.95, 0.94, 0.88, 1.0],
     )
 
-    wall_count = 8
-    outer_radius = 0.035
-    wall_thickness = 0.002
-    wall_half_height = 0.043
-    segment_half_length = outer_radius * math.tan(math.pi / wall_count) * 1.02
+    # MuJoCo has no tapered-cylinder primitive. Small stacked polygon bands
+    # approximate the measured paper-cup taper while retaining collisions.
+    wall_count = 16
+    wall_sections = 12
+    wall_start_z = 0.003
+    section_height = (cup_height - wall_start_z) / wall_sections
     for index in range(wall_count):
         angle = 2.0 * math.pi * index / wall_count
-        cup.add_geom(
-            name=f"cup_wall_{index}",
-            type=mujoco.mjtGeom.mjGEOM_BOX,
-            pos=[outer_radius * math.cos(angle), outer_radius * math.sin(angle), wall_half_height],
-            euler=[0.0, 0.0, angle + math.pi / 2.0],
-            size=[segment_half_length, wall_thickness, wall_half_height],
-            density=450.0,
-            rgba=[0.95, 0.94, 0.88, 1.0],
-        )
+        for section in range(wall_sections):
+            z = wall_start_z + (section + 0.5) * section_height
+            outer_radius = bottom_radius + (top_radius - bottom_radius) * (z / cup_height)
+            segment_half_length = outer_radius * math.sin(math.pi / wall_count)
+            apothem = outer_radius * math.cos(math.pi / wall_count)
+            wall_center_radius = apothem - wall_thickness / 2.0
+            cup.add_geom(
+                name=f"cup_wall_{index}_{section}",
+                type=mujoco.mjtGeom.mjGEOM_BOX,
+                pos=[wall_center_radius * math.cos(angle), wall_center_radius * math.sin(angle), z],
+                euler=[0.0, 0.0, angle + math.pi / 2.0],
+                size=[segment_half_length, wall_thickness, section_height / 2.0 + 0.0001],
+                density=450.0,
+                rgba=[0.95, 0.94, 0.88, 1.0],
+            )
 
     # A brown rigid cylinder makes the coffee visible; it does not slosh or spill.
     cup.add_geom(
         name="coffee_surface",
         type=mujoco.mjtGeom.mjGEOM_CYLINDER,
-        pos=[0.0, 0.0, 0.045],
-        size=[0.028, 0.022],
+        pos=[0.0, 0.0, 0.037],
+        size=[0.027, 0.020],
         density=950.0,
         rgba=[0.20, 0.075, 0.025, 1.0],
     )
 
-    sugar = world.add_body(name="sugar_block", pos=[0.39, 0.11, 0.08])
+    sugar = world.add_body(name="sugar_block", pos=[0.39, 0.11, 0.009])
     sugar.add_freejoint(name="sugar_block_free")
     sugar.add_geom(
         name="sugar_cube",
@@ -103,7 +106,7 @@ def main() -> None:
 
     model = build_model(scene_path)
     data = mujoco.MjData(model)
-    print("SO-101 coffee scene ready. Use the MuJoCo Control panel to move the joints; close the viewer to exit.")
+    print("SO-101 coffee scene ready (no table). Use the MuJoCo Control panel to move the joints; close the viewer to exit.")
     mujoco.viewer.launch(model, data)
 
 
