@@ -20,6 +20,48 @@ LeRobot の HIL-SERL（Human-in-the-Loop Sample-Efficient Reinforcement Learning
 
 このREADMEは SO-100 leader / follower と PS4 を使う場合の手順です。別のロボットや LeRobot の版を使う場合は、[公式 HIL-SERL 実機ガイド](https://huggingface.co/docs/lerobot/en/hilserl)と設定例も確認してください。
 
+## 実機をつなぐ前にシミュレーションする
+
+LeRobot の `gym_hil` シミュレーターは **SO-100 ではなく、MuJoCo 上の Franka Panda** です。HIL-SERL の操作手順を練習するのに使えますが、SO-100 と同じ関節や動きにはなりません。Mac ではまずキーボード操作の画面を開きます。オンライン学習は公式ガイドが NVIDIA GPU を必要環境としているため、M2 Mac ではシミュレーションの操作確認までにして、学習は NVIDIA GPU のあるPCで行ってください。
+
+リポジトリのルートで依存関係を入れます。前の節で LeRobot 用 `.venv` を作っていれば、それを有効にして使います。macOS で MuJoCo の画面を開くときは、通常の `python` ではなく MuJoCo 付属の `mjpython` を使います。これは MuJoCo の `launch_passive` が macOS では `mjpython` 起動を要求するためです（[MuJoCo 公式ドキュメント](https://github.com/google-deepmind/mujoco/blob/main/doc/python.rst)）。
+
+```bash
+cd /path/to/lerobot
+source .venv/bin/activate
+pip install -e ".[hilserl]"
+```
+
+設定ファイル `examples/tutorial/rl/hilserl_so100/gym_hil_sim.json` を使います。`robot` と `teleop` は不要です。シミュレーター内蔵のキーボード操作を使い、データセットは作らず、学習もしない表示・操作確認用の設定です。
+
+macOS:
+
+```bash
+mjpython -m lerobot.rl.gym_manipulator \
+  --config_path examples/tutorial/rl/hilserl_so100/gym_hil_sim.json
+```
+
+Linux:
+
+```bash
+python -m lerobot.rl.gym_manipulator \
+  --config_path examples/tutorial/rl/hilserl_so100/gym_hil_sim.json
+```
+
+ウィンドウが開いたら、矢印キーと修飾キーは押している間だけ動きます。Enter と Esc は現在のエピソードをそれぞれ成功・失敗として終了します。Esc はアプリ終了ではありません。シミュレーター自体を終了するときはターミナルで `Ctrl+C` を押します。
+
+| キー | 動作 |
+| --- | --- |
+| ↑ / ↓ | X 軸を + / - 方向へ動かす |
+| ← / → | Y 軸を + / - 方向へ動かす |
+| 左 Shift / 右 Shift | Z 軸を - / + 方向へ動かす |
+| 右 Ctrl / 左 Ctrl | グリッパーを開く / 閉じる |
+| Enter / Esc | エピソードを成功 / 失敗として終了 |
+| Space | 介入モードを切り替える |
+| R | エピソードを記録し直す |
+
+シミュレーターは Franka Panda 用なので、実ロボットのID `gray_leader` / `white_follower` はここでは使いません。PS4で試す場合は設定の `task` を `PandaPickCubeGamepad-v0` に切り替えます。ゲームパッド操作は gym-hil 側のマッピングが使われ、LeRobot 実機用 PS4 マッピングとは別です。
+
 ### PS4（DualShock 4）の操作
 
 | コントローラー | 操作 | 動作 |
@@ -109,7 +151,6 @@ lerobot-find-joint-limits \
 ```json
 {
   "env": {
-    "type": "gym_manipulator",
     "name": "real_robot",
     "fps": 10,
     "robot": {
@@ -256,7 +297,7 @@ lerobot-train \
 公式の [actor-learner 設定例](https://huggingface.co/datasets/lerobot/config_examples/resolve/main/rl/train_config.json)をコピーして、`examples/tutorial/rl/hilserl_so100/train_hilserl.json` として保存します。次の値をこのロボット向けに置き換えます。
 
 - `dataset.repo_id` / `dataset.root`: ROI 処理後のデータセット
-- `env.type`: `gym_manipulator`、`env.name`: `real_robot`
+- `env.name`: `real_robot`（この LeRobot 版では `env.type` は書かない）
 - `env.robot`: `type: so100_follower`、ポート `/dev/follower`、ID `white_follower`、カメラ
 - `env.teleop`: `{"type": "gamepad", "use_gripper": true}`
 - `env.processor.control_mode`: `gamepad`
