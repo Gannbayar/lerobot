@@ -77,21 +77,19 @@ def build_model(scene_path: Path) -> mujoco.MjModel:
         "front_camera", lateral_mm=400, forward_mm=140, height_mm=125, fovy=75
     )
 
-    # Mount the camera on the wrist link at the location marked in the reference
-    # photo. The camera aims at a point on the gripper, which moves with wrist_roll.
-    # Because the mount is upstream of wrist_roll, rolling the gripper does not
-    # mechanically roll the camera with it.
-    wrist = spec.body("wrist")
+    # Mount the camera on the rotating gripper body at the circled location.
+    # It aims at a point on that same body, so both the camera pose and its view
+    # rotate together with wrist_roll.
     gripper = spec.body("gripper")
     gripper.add_body(
         name="wrist_camera_focus",
         pos=[-0.0079, -0.000218121, -0.0981274],
     )
-    wrist.add_camera(
+    gripper.add_camera(
         name="wrist_camera",
-        # Approximate mount at the circled wrist location, raised and offset to
-        # keep the camera about 20 mm clear of the arm. Coordinates are wrist-local.
-        pos=[0.02, -0.035, 0.045],
+        # Gripper-local coordinates for the circled mount location; about 20 mm
+        # clear of the arm at the neutral wrist_roll pose.
+        pos=[-0.02128527, 0.02589493, 0.0261],
         fovy=70.0,
     )
     wrist_camera = spec.camera("wrist_camera")
