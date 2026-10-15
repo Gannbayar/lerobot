@@ -77,24 +77,24 @@ def build_model(scene_path: Path) -> mujoco.MjModel:
         "front_camera", lateral_mm=400, forward_mm=140, height_mm=125, fovy=75
     )
 
-    # Mount the camera on the rotating gripper body at the circled location.
-    # It aims at a point on that same body, so both the camera pose and its view
-    # rotate together with wrist_roll.
+    # Rigidly mount the camera on the rotating gripper body. Keep its optical
+    # axis in gripper-local coordinates so wrist_roll rotates the whole camera
+    # pose; TARGETBODY mode would override that local orientation.
     gripper = spec.body("gripper")
-    gripper.add_body(
-        name="wrist_camera_focus",
-        pos=[-0.0079, -0.000218121, -0.0981274],
-    )
+    wrist_camera_pos = [-0.0362675, 0.02516503, 0.0261]
+    wrist_camera_aim = [-0.0079, -0.000218121, -0.0981274]
+    wrist_camera_zaxis = [
+        wrist_camera_pos[axis] - wrist_camera_aim[axis] for axis in range(3)
+    ]
+    wrist_camera_zaxis_length = math.sqrt(sum(value**2 for value in wrist_camera_zaxis))
+    wrist_camera_zaxis = [value / wrist_camera_zaxis_length for value in wrist_camera_zaxis]
     gripper.add_camera(
         name="wrist_camera",
-        # Gripper-local coordinates for the circled mount location; about 20 mm
-        # clear of the arm at the neutral wrist_roll pose.
-        pos=[-0.02128527, 0.02589493, 0.0261],
+        # About 35 mm clear of the arm at the neutral wrist_roll pose.
+        pos=wrist_camera_pos,
+        zaxis=wrist_camera_zaxis,
         fovy=70.0,
     )
-    wrist_camera = spec.camera("wrist_camera")
-    wrist_camera.mode = mujoco.mjtCamLight.mjCAMLIGHT_TARGETBODY
-    wrist_camera.targetbody = "wrist_camera_focus"
 
     # Dimensions supplied by the user: 73 mm top, 50 mm bottom, 80 mm tall.
     cup_height = 0.080
