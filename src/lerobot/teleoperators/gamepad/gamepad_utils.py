@@ -196,265 +196,132 @@ class KeyboardController(InputController):
 
 
 class GamepadController(InputController):
-    """Generate motion deltas from gamepad input."""
+    """Read PlayStation-style gamepad inputs through SDL's standard controller mapping."""
 
     def __init__(self, x_step_size=1.0, y_step_size=1.0, z_step_size=1.0, deadzone=0.1):
         super().__init__(x_step_size, y_step_size, z_step_size)
         self.deadzone = deadzone
-        self.joystick = None
-        self.intervention_flag = False
+        self.pygame = None
+        self.controller_api = None
+        self.controller = None
+        self.previous_buttons = {}
 
     def start(self):
-        """Initialize pygame and the gamepad."""
+        """Initialize SDL's mapped controller API and connect a supported gamepad."""
         import pygame
+        from pygame._sdl2 import controller
 
+        self.pygame = pygame
+        self.controller_api = controller
         pygame.init()
-        pygame.joystick.init()
+        controller.init()
 
-        if pygame.joystick.get_count() == 0:
-            logging.error("No gamepad detected. Please connect a gamepad and try again.")
+        joystick_count = controller.get_count()
+        controller_indices = [index for index in range(joystick_count) if controller.is_controller(index)]
+        if not controller_indices:
+            logging.error("No SDL game controller detected. Connect a DualShock 4 and try again.")
             self.running = False
             return
 
-        self.joystick = pygame.joystick.Joystick(0)
-        self.joystick.init()
-        logging.info(f"Initialized gamepad: {self.joystick.get_name()}")
+        preferred_names = ("dualshock", "ps4", "playstation", "wireless controller")
+        selected_index = next(
+            (
+                index
+                for index in controller_indices
+                if any(name in (controller.name_forindex(index) or "").lower() for name in preferred_names)
+            ),
+            controller_indices[0],
+        )
+        self.controller = controller.Controller(selected_index)
+        logging.info("Initialized gamepad: %s", controller.name_forindex(selected_index))
 
-        print("Gamepad controls:")
-        print("  Left analog stick: Move in X-Y plane")
-        print("  Right analog stick (vertical): Move in Z axis")
-        print("  B/Circle button: Exit")
-        print("  Y/Triangle button: End episode with SUCCESS")
-        print("  A/Cross button: End episode with FAILURE")
-        print("  X/Square button: Rerecord episode")
+        self.previous_buttons = {
+            "success": False,
+            "failure": False,
+            "rerecord": False,
+        }
+
+        print("DualShock 4 controls:")
+        print("  Left stick: Move in X-Y plane")
+        print("  Right stick vertical: Move in Z axis")
+        print("  Triangle: End episode with SUCCESS")
+        print("  Cross: End episode with FAILURE")
+        print("  Square: Rerecord episode")
+        print("  R1: Take over from the policy")
+        print("  L2 / R2: Close / open gripper")
 
     def stop(self):
-        """Clean up pygame resources."""
-        import pygame
+        """Close the controller and release pygame resources."""
+        if self.controller is not None:
+            self.controller.quit()
+            self.controller = None
+        if self.controller_api is not None and self.controller_api.get_init():
+            self.controller_api.quit()
+        if self.pygame is not None:
+            self.pygame.quit()
 
-        if pygame.joystick.get_init():
-            if self.joystick:
-                self.joystick.quit()
-            pygame.joystick.quit()
-        pygame.quit()
+    @staticmethod
+    def _normalize_stick_axis(value):
+        """Normalize an SDL signed 16-bit stick axis to [-1, 1]."""
+        value = int(value)
+        return value / 32768.0 if value < 0 else value / 32767.0
+
+    @staticmethod
+    def _normalize_trigger(value):
+        """Normalize an SDL trigger axis to [0, 1]."""
+        return max(0.0, min(1.0, int(value) / 32767.0))
 
     def update(self):
-        """Process pygame events to get fresh gamepad readings."""
-        import pygame
+        """Poll mapped DualShock buttons and analog triggers."""
+        if self.controller is None or not self.running:
+            return
 
-        for event in pygame.event.get():
-            if event.type == pygame.JOYBUTTONDOWN:
-                if event.button == 3:
-                    self.episode_end_status = TeleopEvents.SUCCESS
-                # A button (1) for failure
-                elif event.button == 1:
-                    self.episode_end_status = TeleopEvents.FAILURE
-                # X button (0) for rerecord
-                elif event.button == 0:
-                    self.episode_end_status = TeleopEvents.RERECORD_EPISODE
+        api = self.controller_api
+        self.pygame.event.pump()
+        try:
+            button_states = {
+                "success": bool(self.controller.get_button(api.CONTROLLER_BUTTON_Y)),
+                "failure": bool(self.controller.get_button(api.CONTROLLER_BUTTON_A)),
+                "rerecord": bool(self.controller.get_button(api.CONTROLLER_BUTTON_X)),
+            }
 
-                # RB button (6) for closing gripper
-                elif event.button == 6:
-                    self.close_gripper_command = True
+            if button_states["success"] and not self.previous_buttons["success"]:
+                self.episode_end_status = TeleopEvents.SUCCESS
+            elif button_states["failure"] and not self.previous_buttons["failure"]:
+                self.episode_end_status = TeleopEvents.FAILURE
+            elif button_states["rerecord"] and not self.previous_buttons["rerecord"]:
+                self.episode_end_status = TeleopEvents.RERECORD_EPISODE
+            self.previous_buttons = button_states
 
-                # LT button (7) for opening gripper
-                elif event.button == 7:
-                    self.open_gripper_command = True
-
-            # Reset episode status on button release
-            elif event.type == pygame.JOYBUTTONUP:
-                if event.button in [0, 2, 3]:
-                    self.episode_end_status = None
-
-                elif event.button == 6:
-                    self.close_gripper_command = False
-
-                elif event.button == 7:
-                    self.open_gripper_command = False
-
-            # Check for RB button (typically button 5) for intervention flag
-            if self.joystick.get_button(5):
-                self.intervention_flag = True
-            else:
-                self.intervention_flag = False
+            self.intervention_flag = bool(self.controller.get_button(api.CONTROLLER_BUTTON_RIGHTSHOULDER))
+            self.close_gripper_command = (
+                self._normalize_trigger(self.controller.get_axis(api.CONTROLLER_AXIS_TRIGGERLEFT)) > 0.5
+            )
+            self.open_gripper_command = (
+                self._normalize_trigger(self.controller.get_axis(api.CONTROLLER_AXIS_TRIGGERRIGHT)) > 0.5
+            )
+        except self.pygame.error:
+            logging.error("Error reading gamepad. Is it still connected?")
+            self.running = False
+            self.intervention_flag = False
+            self.close_gripper_command = False
+            self.open_gripper_command = False
 
     def get_deltas(self):
-        """Get the current movement deltas from gamepad state."""
-        import pygame
-
-        try:
-            # Read joystick axes
-            # Left stick X and Y (typically axes 0 and 1)
-            y_input = self.joystick.get_axis(0)  # Up/Down (often inverted)
-            x_input = self.joystick.get_axis(1)  # Left/Right
-
-            # Right stick Y (typically axis 3 or 4)
-            z_input = self.joystick.get_axis(3)  # Up/Down for Z
-
-            # Apply deadzone to avoid drift
-            x_input = 0 if abs(x_input) < self.deadzone else x_input
-            y_input = 0 if abs(y_input) < self.deadzone else y_input
-            z_input = 0 if abs(z_input) < self.deadzone else z_input
-
-            # Calculate deltas (note: may need to invert axes depending on controller)
-            delta_x = -x_input * self.x_step_size  # Forward/backward
-            delta_y = -y_input * self.y_step_size  # Left/right
-            delta_z = -z_input * self.z_step_size  # Up/down
-
-            return delta_x, delta_y, delta_z
-
-        except pygame.error:
-            logging.error("Error reading gamepad. Is it still connected?")
+        """Return XYZ movement deltas from the DualShock sticks."""
+        if self.controller is None or not self.running:
             return 0.0, 0.0, 0.0
 
+        api = self.controller_api
+        left_x = self._normalize_stick_axis(self.controller.get_axis(api.CONTROLLER_AXIS_LEFTX))
+        left_y = self._normalize_stick_axis(self.controller.get_axis(api.CONTROLLER_AXIS_LEFTY))
+        right_y = self._normalize_stick_axis(self.controller.get_axis(api.CONTROLLER_AXIS_RIGHTY))
 
-class GamepadControllerHID(InputController):
-    """Generate motion deltas from gamepad input using HIDAPI."""
+        left_x = 0.0 if abs(left_x) < self.deadzone else left_x
+        left_y = 0.0 if abs(left_y) < self.deadzone else left_y
+        right_y = 0.0 if abs(right_y) < self.deadzone else right_y
 
-    def __init__(
-        self,
-        x_step_size=1.0,
-        y_step_size=1.0,
-        z_step_size=1.0,
-        deadzone=0.1,
-    ):
-        """
-        Initialize the HID gamepad controller.
-
-        Args:
-            step_size: Base movement step size in meters
-            z_scale: Scaling factor for Z-axis movement
-            deadzone: Joystick deadzone to prevent drift
-        """
-        super().__init__(x_step_size, y_step_size, z_step_size)
-        self.deadzone = deadzone
-        self.device = None
-        self.device_info = None
-
-        # Movement values (normalized from -1.0 to 1.0)
-        self.left_x = 0.0
-        self.left_y = 0.0
-        self.right_x = 0.0
-        self.right_y = 0.0
-
-        # Button states
-        self.buttons = {}
-
-    def find_device(self):
-        """Look for the gamepad device by vendor and product ID."""
-        import hid
-
-        devices = hid.enumerate()
-        for device in devices:
-            device_name = device["product_string"]
-            if any(controller in device_name for controller in ["Logitech", "Xbox", "PS4", "PS5"]):
-                return device
-
-        logging.error(
-            "No gamepad found, check the connection and the product string in HID to add your gamepad"
-        )
-        return None
-
-    def start(self):
-        """Connect to the gamepad using HIDAPI."""
-        import hid
-
-        self.device_info = self.find_device()
-        if not self.device_info:
-            self.running = False
-            return
-
-        try:
-            logging.info(f"Connecting to gamepad at path: {self.device_info['path']}")
-            self.device = hid.device()
-            self.device.open_path(self.device_info["path"])
-            self.device.set_nonblocking(1)
-
-            manufacturer = self.device.get_manufacturer_string()
-            product = self.device.get_product_string()
-            logging.info(f"Connected to {manufacturer} {product}")
-
-            logging.info("Gamepad controls (HID mode):")
-            logging.info("  Left analog stick: Move in X-Y plane")
-            logging.info("  Right analog stick: Move in Z axis (vertical)")
-            logging.info("  Button 1/B/Circle: Exit")
-            logging.info("  Button 2/A/Cross: End episode with SUCCESS")
-            logging.info("  Button 3/X/Square: End episode with FAILURE")
-
-        except OSError as e:
-            logging.error(f"Error opening gamepad: {e}")
-            logging.error("You might need to run this with sudo/admin privileges on some systems")
-            self.running = False
-
-    def stop(self):
-        """Close the HID device connection."""
-        if self.device:
-            self.device.close()
-            self.device = None
-
-    def update(self):
-        """
-        Read and process the latest gamepad data.
-        Due to an issue with the HIDAPI, we need to read the read the device several times in order to get a stable reading
-        """
-        for _ in range(10):
-            self._update()
-
-    def _update(self):
-        """Read and process the latest gamepad data."""
-        if not self.device or not self.running:
-            return
-
-        try:
-            # Read data from the gamepad
-            data = self.device.read(64)
-            # Interpret gamepad data - this will vary by controller model
-            # These offsets are for the Logitech RumblePad 2
-            if data and len(data) >= 8:
-                # Normalize joystick values from 0-255 to -1.0-1.0
-                self.left_y = (data[1] - 128) / 128.0
-                self.left_x = (data[2] - 128) / 128.0
-                self.right_x = (data[3] - 128) / 128.0
-                self.right_y = (data[4] - 128) / 128.0
-
-                # Apply deadzone
-                self.left_y = 0 if abs(self.left_y) < self.deadzone else self.left_y
-                self.left_x = 0 if abs(self.left_x) < self.deadzone else self.left_x
-                self.right_x = 0 if abs(self.right_x) < self.deadzone else self.right_x
-                self.right_y = 0 if abs(self.right_y) < self.deadzone else self.right_y
-
-                # Parse button states (byte 5 in the Logitech RumblePad 2)
-                buttons = data[5]
-
-                # Check if RB is pressed then the intervention flag should be set
-                self.intervention_flag = data[6] in [2, 6, 10, 14]
-
-                # Check if RT is pressed
-                self.open_gripper_command = data[6] in [8, 10, 12]
-
-                # Check if LT is pressed
-                self.close_gripper_command = data[6] in [4, 6, 12]
-
-                # Check if Y/Triangle button (bit 7) is pressed for saving
-                # Check if X/Square button (bit 5) is pressed for failure
-                # Check if A/Cross button (bit 4) is pressed for rerecording
-                if buttons & 1 << 7:
-                    self.episode_end_status = TeleopEvents.SUCCESS
-                elif buttons & 1 << 5:
-                    self.episode_end_status = TeleopEvents.FAILURE
-                elif buttons & 1 << 4:
-                    self.episode_end_status = TeleopEvents.RERECORD_EPISODE
-                else:
-                    self.episode_end_status = None
-
-        except OSError as e:
-            logging.error(f"Error reading from gamepad: {e}")
-
-    def get_deltas(self):
-        """Get the current movement deltas from gamepad state."""
-        # Calculate deltas - invert as needed based on controller orientation
-        delta_x = -self.left_x * self.x_step_size  # Forward/backward
-        delta_y = -self.left_y * self.y_step_size  # Left/right
-        delta_z = -self.right_y * self.z_step_size  # Up/down
-
+        delta_x = -left_y * self.x_step_size
+        delta_y = -left_x * self.y_step_size
+        delta_z = -right_y * self.z_step_size
         return delta_x, delta_y, delta_z

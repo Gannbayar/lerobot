@@ -104,7 +104,7 @@ feetech = ["feetech-servo-sdk>=1.0.0,<2.0.0"]
 dynamixel = ["dynamixel-sdk>=3.7.31,<3.9.0"]
 
 # Robots
-gamepad = ["lerobot[pygame-dep]", "hidapi>=0.14.0,<0.15.0"]
+gamepad = ["lerobot[pygame-dep]"]
 hopejr = ["lerobot[feetech]", "lerobot[pygame-dep]"]
 lekiwi = ["lerobot[feetech]", "pyzmq>=26.2.1,<28.0.0"]
 unitree_g1 = [

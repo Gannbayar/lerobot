@@ -20,6 +20,14 @@ LeRobot の HIL-SERL（Human-in-the-Loop Sample-Efficient Reinforcement Learning
 
 公式ガイドには、依存関係、報酬分類器データの記録と学習、actor-learner 構成、コントローラー操作の詳細があります。コマンドや設定項目は、利用する LeRobot のバージョンに合わせて同ガイドを参照してください。
 
+### PS4（DualShock 4）の操作
+
+- 左スティック：X-Y 移動
+- 右スティック上下：Z 移動
+- R1：方策への介入
+- L2 / R2：グリッパーを閉じる / 開く
+- Triangle / Cross / Square：成功 / 失敗 / エピソード再記録
+
 ## 環境の設定
 
 ローカルの設定ファイルには機材ごとの値を設定します。公開する設定例には実ポート名や個人のファイルパスを書かず、各自の環境で値を埋めてください。
