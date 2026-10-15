@@ -86,7 +86,8 @@ def build_model(scene_path: Path) -> mujoco.MjModel:
     )
     gripper.add_camera(
         name="wrist_camera",
-        pos=[0.0, 0.035, 0.035],
+        # Local +Z moves it sideways 20 mm from the previous placement to clear the arm.
+        pos=[0.0, 0.035, 0.055],
         mode=mujoco.mjtCamLight.mjCAMLIGHT_TARGETBODY,
         targetbody="wrist_camera_focus",
         fovy=70.0,
