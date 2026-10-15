@@ -77,14 +77,18 @@ def build_model(scene_path: Path) -> mujoco.MjModel:
         "front_camera", lateral_mm=400, forward_mm=140, height_mm=125, fovy=75
     )
 
-    # A wrist-mounted viewpoint follows the moving gripper and keeps the work
-    # area in view, like a close-up camera mounted near the robot's hand.
+    # The wrist camera follows the gripper and points at the SO-101 gripperframe
+    # site, so the grasp point stays in view as the arm moves.
     gripper = spec.body("gripper")
+    gripper.add_body(
+        name="wrist_camera_focus",
+        pos=[-0.0079, -0.000218121, -0.0981274],
+    )
     gripper.add_camera(
         name="wrist_camera",
         pos=[0.0, 0.035, 0.035],
         mode=mujoco.mjtCamLight.mjCAMLIGHT_TARGETBODY,
-        targetbody="camera_focus",
+        targetbody="wrist_camera_focus",
         fovy=70.0,
     )
 
