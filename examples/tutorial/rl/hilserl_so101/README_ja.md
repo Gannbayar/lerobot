@@ -18,15 +18,290 @@ LeRobot の HIL-SERL（Human-in-the-Loop Sample-Efficient Reinforcement Learning
 4. **actor と learner を起動する** — learner を先に起動し、同じ学習設定を使う actor を別プロセスで起動します。
 5. **人が介入しながら学習する** — 方策が失敗しそうなときに teleoperator へ操作を切り替え、安全にタスクを完了させます。介入が減っているか、成功率とともに記録します。
 
-公式ガイドには、依存関係、報酬分類器データの記録と学習、actor-learner 構成、コントローラー操作の詳細があります。コマンドや設定項目は、利用する LeRobot のバージョンに合わせて同ガイドを参照してください。
+このREADMEは SO-101 follower と PS4 を使う場合の手順です。別のロボットや LeRobot の版を使う場合は、[公式 HIL-SERL 実機ガイド](https://huggingface.co/docs/lerobot/en/hilserl)と設定例も確認してください。
 
 ### PS4（DualShock 4）の操作
 
-- 左スティック：X-Y 移動
-- 右スティック上下：Z 移動
-- R1：方策への介入
-- L2 / R2：グリッパーを閉じる / 開く
-- Triangle / Cross / Square：成功 / 失敗 / エピソード再記録
+| コントローラー | 操作 | 動作 |
+| --- | --- | --- |
+| 左スティック上 / 下 | 倒す | X 軸を + / - 方向へ動かす |
+| 左スティック左 / 右 | 倒す | Y 軸を + / - 方向へ動かす |
+| 右スティック上 / 下 | 倒す | Z 軸を + / - 方向へ動かす |
+| L2 | 押す | グリッパーを閉じる |
+| R2 | 押す | グリッパーを開く |
+| R1 | 押している間 | 方策を中断して人が操作する（介入） |
+| Triangle（△） | 1 回押す | 成功ラベルを付ける |
+| Cross（×） | 1 回押す | 失敗としてエピソードを終了する |
+| Square（□） | 1 回押す | 現在のエピソードを破棄して記録し直す |
+
+スティックを倒す量に応じて移動指令が変わります。中央付近の小さな入力は無視されます。グリッパー操作を使うには、teleoperator と `env.processor.gripper` の両方で `use_gripper: true` にしてください。L2 と R2 を同時に押した場合、グリッパーはその場で停止します。
+
+### 実機で HIL-SERL を始める順番（SO-101 follower + PS4）
+
+以下は **SO-101 follower、前方カメラ1台、PS4、Linux + NVIDIA GPU** を例にしています。ポート、カメラ番号、URDF、作業範囲は機材ごとに置き換えてください。LeRobot の[公式 HIL-SERL 実機ガイド](https://huggingface.co/docs/lerobot/en/hilserl)にも全体の構成があります。
+
+#### 1. LeRobot と必要な依存関係を入れる
+
+リポジトリのルートで仮想環境を作ります。すでに LeRobot 用の環境がある場合は、依存関係のインストールだけ実行してください。
+
+```bash
+cd /path/to/lerobot
+python -m venv .venv
+source .venv/bin/activate
+pip install -e ".[hilserl,gamepad,feetech]"
+```
+
+`gamepad` は PS4 入力用、`feetech` は SO-101 のモーター用です。HIL-SERL のオンライン学習には NVIDIA GPU を推奨します。CPU でも起動できる場合がありますが、学習はかなり遅くなります。
+
+#### 2. ロボット、カメラ、ゲームパッドを確認する
+
+```bash
+lerobot-find-port
+lerobot-find-cameras opencv
+```
+
+`lerobot-find-port` は USB コントローラを一度外すよう求めます。表示された follower のポートを控えます。カメラ一覧から使うカメラの番号、解像度も控えます。PS4 は USB で接続しておくと、最初の設定が簡単です。
+
+SO-101 follower をまだキャリブレーションしていない場合は、アームを安全な中間位置に置いてから実行します。
+
+```bash
+lerobot-calibrate \
+  --robot.type=so101_follower \
+  --robot.port=/dev/tty.usbmodemXXXX \
+  --robot.id=so101_follower
+```
+
+macOS ではポートが `/dev/tty.*` または `/dev/cu.*`、Linux では `/dev/ttyACM*` などになります。キャリブレーション中は画面の指示に従い、各関節を無理のない範囲で動かします。
+
+#### 3. URDF と安全な作業範囲を準備する
+
+SO-101 の URDF は [SO-ARM100 リポジトリ](https://github.com/TheRobotStudio/SO-ARM100)の `Simulation/SO101/so101_new_calib.urdf` を使います。パスとエンドエフェクタ名 `gripper` を設定に記入してください。
+
+leader アームも使える場合は、次のコマンドで作業範囲を測れます。計測中は leader を動かし、follower がタスクを安全に行える範囲を通します。
+
+```bash
+lerobot-find-joint-limits \
+  --robot.type=so101_follower \
+  --robot.port=/dev/tty.usbmodemXXXX \
+  --robot.id=so101_follower \
+  --teleop.type=so101_leader \
+  --teleop.port=/dev/tty.usbmodemYYYY \
+  --teleop.id=so101_leader \
+  --urdf_path=/path/to/SO-ARM100/Simulation/SO101/so101_new_calib.urdf \
+  --target_frame_name=gripper \
+  --teleop_time_s=30 \
+  --warmup_time_s=5
+```
+
+このコマンドは SO-101 leader を必要とします。PS4 だけを使う場合は、計測済みの安全な範囲を設定してください。下の `end_effector_bounds` の数値は **機材に合わせて実測値へ置き換える欄** です。サンプル値をそのまま実機に使わないでください。SO-101 は角度を度で扱うため、robot 設定では `use_degrees: true` にします。
+
+#### 4. 成功・失敗ラベル付きのデータを記録する
+
+設定ファイル `examples/tutorial/rl/hilserl_so101/reward_record.json` を作り、次の例を保存します。`port`、カメラの `index_or_path`、URDF、`end_effector_bounds` は自分の値に置き換えます。
+
+```json
+{
+  "env": {
+    "type": "gym_manipulator",
+    "name": "real_robot",
+    "fps": 10,
+    "robot": {
+      "type": "so101_follower",
+      "port": "/dev/tty.usbmodemXXXX",
+      "id": "so101_follower",
+      "use_degrees": true,
+      "cameras": {
+        "front": {
+          "type": "opencv",
+          "index_or_path": 0,
+          "fps": 30,
+          "width": 640,
+          "height": 480
+        }
+      }
+    },
+    "teleop": {
+      "type": "gamepad",
+      "use_gripper": true
+    },
+    "processor": {
+      "control_mode": "gamepad",
+      "image_preprocessing": {
+        "crop_params_dict": {},
+        "resize_size": [128, 128]
+      },
+      "gripper": {
+        "use_gripper": true,
+        "gripper_penalty": 0.0
+      },
+      "reset": {
+        "reset_time_s": 5.0,
+        "control_time_s": 20.0,
+        "terminate_on_success": false
+      },
+      "inverse_kinematics": {
+        "urdf_path": "/path/to/SO-ARM100/Simulation/SO101/so101_new_calib.urdf",
+        "target_frame_name": "gripper",
+        "end_effector_bounds": {
+          "min": ["X_MIN", "Y_MIN", "Z_MIN"],
+          "max": ["X_MAX", "Y_MAX", "Z_MAX"]
+        },
+        "end_effector_step_sizes": {
+          "x": 0.01,
+          "y": 0.01,
+          "z": 0.01
+        }
+      }
+    }
+  },
+  "dataset": {
+    "repo_id": "local/so101_reward_labels",
+    "root": "data/so101_reward_labels",
+    "task": "pick_and_lift_cube",
+    "num_episodes_to_record": 20,
+    "replay_episode": null,
+    "push_to_hub": false
+  },
+  "mode": "record",
+  "device": "cpu"
+}
+```
+
+上の `X_MIN` などは説明用の文字列なので、計測した数値に置き換えてから実行します。最初は `push_to_hub` を `false` のままにして、データをローカルに保存します。
+
+```bash
+python -m lerobot.rl.gym_manipulator \
+  --config_path examples/tutorial/rl/hilserl_so101/reward_record.json
+```
+
+記録中は **R1 を押しながら** スティックと L2/R2 でロボットを操作します。初回は目標を「キューブをつかんで持ち上げる」など、5～10秒ほどで終わる単純なタスクにします。
+
+**最初の収録目安：20エピソード（成功 10、失敗 10）** とします。これは始めるための実務上の目安です。公式ガイドは合計20エピソードの例を載せていますが、成功と失敗の固定比率は指定していません。
+
+報酬分類器が学習するラベルはエピソード全体ではなく、各フレームの `reward` です。成功した状態を保って Triangle を押し、いったん離してから何度か押し直すと、その瞬間の画像に成功ラベル `1` が付きます。この設定では `terminate_on_success: false` なので Triangle だけではエピソードが終わりません。成功画像を付け終えたら Cross を押して次へ進みます。失敗状態では、その状態をカメラに映して Cross を押します。Triangle を1回押しただけだと成功ラベルは原則1フレームだけで、残りのフレームは `0` です。
+
+枚数は「成功エピソード10本、失敗エピソード10本」だけで判断せず、まず **成功ラベル付き画像を100枚程度** 集め、失敗・未成功の画像も少なくとも同程度になるよう、物体位置や失敗の仕方に変化をつけて追加収録します。100枚はこの教材での初期目安で、公式に定められた必須数ではありません。予測が不安定なら両方の例を増やします。
+
+#### 5. カメラ画像の ROI を切り出す
+
+タスクに関係するロボット先端、物体、ゴール領域が入るよう ROI を選びます。
+
+```bash
+python -m lerobot.rl.crop_dataset_roi \
+  --repo-id local/so101_reward_labels \
+  --root data/so101_reward_labels \
+  --task "pick up the cube and lift it"
+```
+
+各カメラ画像で範囲をドラッグし、`c` で確定します。出力データセットは `local/so101_reward_labels_cropped_resized`、ローカルでは `data/so101_reward_labels_cropped_resized` です。出力の `meta/crop_params.json` にある `[top, left, height, width]` を、後述する actor/learner 設定の `crop_params_dict` にも設定します。
+
+#### 6. 報酬分類器を学習する
+
+`examples/tutorial/rl/hilserl_so101/reward_classifier_train.json` を作り、カメラ名 `front` と前段で作った dataset を指定します。複数カメラなら `input_features` に各カメラを追加し、`num_cameras` も同じ数にします。
+
+```json
+{
+  "dataset": {
+    "repo_id": "local/so101_reward_labels_cropped_resized",
+    "root": "data/so101_reward_labels_cropped_resized"
+  },
+  "policy": {
+    "type": "reward_classifier",
+    "model_name": "helper2424/resnet10",
+    "model_type": "cnn",
+    "num_cameras": 1,
+    "num_classes": 2,
+    "hidden_dim": 256,
+    "dropout_rate": 0.1,
+    "learning_rate": 0.0001,
+    "device": "cuda",
+    "input_features": {
+      "observation.images.front": {
+        "type": "VISUAL",
+        "shape": [3, 128, 128]
+      }
+    },
+    "push_to_hub": false
+  },
+  "output_dir": "outputs/so101_reward_classifier",
+  "batch_size": 16,
+  "num_workers": 4,
+  "steps": 5000,
+  "log_freq": 10,
+  "save_freq": 1000,
+  "save_checkpoint": true,
+  "eval_freq": 0,
+  "wandb": {
+    "enable": false
+  }
+}
+```
+
+```bash
+lerobot-train \
+  --config_path examples/tutorial/rl/hilserl_so101/reward_classifier_train.json
+```
+
+学習後のモデルは `outputs/so101_reward_classifier/checkpoints/last/pretrained_model` に保存されます。2値分類の予測が成功画像と失敗画像を見分けるか、数枚ずつ目視で確認します。
+
+#### 7. actor / learner 用設定を作る
+
+公式の [actor-learner 設定例](https://huggingface.co/datasets/lerobot/config_examples/resolve/main/rl/train_config.json)をコピーして、`examples/tutorial/rl/hilserl_so101/train_hilserl.json` として保存します。次の値をこのロボット向けに置き換えます。
+
+- `dataset.repo_id` / `dataset.root`: ROI 処理後のデータセット
+- `env.type`: `gym_manipulator`、`env.name`: `real_robot`
+- `env.robot`: SO-101 follower のポート、ID、カメラ
+- `env.teleop`: `{"type": "gamepad", "use_gripper": true}`
+- `env.processor.control_mode`: `gamepad`
+- `env.processor.inverse_kinematics`: 4節の URDF、実測 bounds、step size
+- `env.processor.image_preprocessing`: 5節の crop params と `[128, 128]`
+- `env.processor.reward_classifier.pretrained_path`: 分類器の保存先
+- `env.processor.reset.terminate_on_success`: `true`（学習時は分類器の成功判定でエピソードを終える）
+- `policy.type`: `sac`、`policy.num_discrete_actions`: `3`（グリッパーの close / stay / open）
+- `policy.device`: CUDA マシンなら `cuda`
+- `policy.temperature_init`: `0.01` から開始
+- `policy.online_steps`: 最初は `100000` 程度にして動作確認
+- `policy.push_to_hub`: `false`（ローカル保存）
+- `wandb.enable`: アカウント設定前は `false`
+
+SO-101 は6関節なので、policy の観測特徴には画像と `observation.state`（shape `[6]`）を指定します。画像は `[3, 128, 128]`、連続アクションは XYZ の3成分です。離散グリッパー操作を有効にするため `num_discrete_actions` を3にします。設定例に `env.features` / `env.features_map` がない場合は、次の内容を追加します（カメラ名を変えたら `front` も合わせます）。
+
+```json
+"features": {
+  "front": {"type": "VISUAL", "shape": [128, 128, 3]},
+  "agent_pos": {"type": "STATE", "shape": [6]},
+  "action": {"type": "ACTION", "shape": [3]}
+},
+"features_map": {
+  "front": "observation.images.front",
+  "agent_pos": "observation.state",
+  "action": "action"
+}
+```
+
+#### 8. 学習を開始する
+
+同じ PC 上でターミナルを2つ開きます。最初に learner を起動します。
+
+**ターミナル1：learner**
+
+```bash
+python -m lerobot.rl.learner \
+  --config_path examples/tutorial/rl/hilserl_so101/train_hilserl.json
+```
+
+learner が gRPC サーバーを起動したら、もう一方で actor を起動します。
+
+**ターミナル2：actor（実機を動かすプロセス）**
+
+```bash
+python -m lerobot.rl.actor \
+  --config_path examples/tutorial/rl/hilserl_so101/train_hilserl.json
+```
+
+actor が接続するとロボットが動き始めます。方策が危険な方向へ動いたときや動作に失敗したときは、R1 を押し続けて操作を引き取り、スティックとグリッパーで修正します。R1 を離すと方策に戻ります。うまくいったエピソードは Triangle、失敗したエピソードは Cross で記録します。はじめは介入し、学習が進むにつれて介入回数を減らします。
+
+停止するときは **ターミナル2の actor から `Ctrl+C`、次にターミナル1の learner で `Ctrl+C`** を押します。出力先 `outputs/so101_hilserl` に checkpoint とログが保存されます。再実行時は `output_dir` を別名にするか、意図した checkpoint から resume してください。
 
 ## 環境の設定
 
