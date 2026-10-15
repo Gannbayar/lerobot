@@ -34,6 +34,8 @@ python examples/tutorial/rl/hilserl_so100/simulate_so101_coffee.py
 
 SO-101、550×400 mmの青黒チェックマット、紙コップ、コーヒー、砂糖ブロックが表示されます。マット端はロボットベースの後ろ側に合うようにし、ロボットをマットに対して約50 mm前へ寄せています。木の台は追加していません。ジョイントはビューアの **Control** パネルで動かします。カメラを使うには、起動後にビューア上部の **Camera** メニューを開き、`wrist_camera`、`robot_camera`、`side_camera`、`front_camera` のいずれかを選びます。`wrist_camera` はアームから側方へ約20 mmずらしてグリッパーに取り付け、把持点を向きながらアームに追従します。他の3台は配置図の高さ（610・440・125 mm）に合わせた固定視点で、マット中央を見るよう傾けています。位置・角度は配置資料からの近似です。これらはビューアの視点で、HIL-SERLに画像を送るカメラ入力ではありません。マットの格子幅も写真からの概算です。SO-ARM100を別の場所に置いた場合は、シーンXMLのパスを指定します。
 
+カメラの位置や向きを自分で調整する場合は、共通ガイドの[カメラ調整方法](README_ja.md#カメラ位置と向きを自分で調整する)を参照してください。
+
 ```bash
 python examples/tutorial/rl/hilserl_so100/simulate_so101_coffee.py \
   --scene "$HOME/SO-ARM100/Simulation/SO101/scene.xml"
