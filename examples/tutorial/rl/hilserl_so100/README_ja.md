@@ -24,7 +24,7 @@ LeRobot の HIL-SERL（Human-in-the-Loop Sample-Efficient Reinforcement Learning
 
 シミュレーションには目的の異なる2つの方法があります。**HIL-SERL の操作手順を練習する環境は Franka Panda** です。SO-101 の形を確認するだけなら、公式 MuJoCo モデルを別ビューアで開けます。後者はロボットの見た目を確認する方法で、HIL-SERLのタスク環境ではありません。
 
-OS別のインストール・起動手順: [macOS](README_macOS_ja.md) / [Linux](README_Linux_ja.md)。SO-101、紙コップ、コーヒー、砂糖ブロックを含むシーンは `simulate_so101_coffee.py` で開きます。
+OS別のインストール・起動手順: [macOS](README_macOS_ja.md) / [Linux](README_Linux_ja.md)。SO-101、紙コップ、コーヒー、砂糖ブロックを含むシーンは `simulate_so101_coffee.py` で開きます。茶色い台は追加せず、紙コップは上径7.3 cm・底径5 cm・高さ8 cmで作っています。実環境の写真を受け取った後、周囲の環境や物体配置を写真に合わせて更新します。
 
 ### SO-101 のモデルを MuJoCo で表示する
 
