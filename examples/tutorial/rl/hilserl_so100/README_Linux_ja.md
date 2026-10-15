@@ -32,7 +32,7 @@ source .venv/bin/activate
 python examples/tutorial/rl/hilserl_so100/simulate_so101_coffee.py
 ```
 
-SO-101、青黒のチェックマット、紙コップ、コーヒー、砂糖ブロックが表示されます。木の台は追加せず、マットは実環境写真を参考にした近似です。ジョイントはビューアの **Control** パネルで動かします。**Camera** メニューから `top_camera`、`side_camera`、`wrist_camera` を選ぶと、3つの視点を確認できます。カメラ位置は写真からの概算です。SO-ARM100を別の場所に置いた場合は、シーンXMLのパスを指定します。
+SO-101、550×400 mmの青黒チェックマット、紙コップ、コーヒー、砂糖ブロックが表示されます。木の台は追加していません。ジョイントはビューアの **Control** パネルで動かします。**Camera** メニューから `robot_camera`、`side_camera`、`front_camera` を選ぶと、配置資料にある3台のカメラ位置と高さ（610・440・125 mm）から見られます。位置はロボット基準の上面図からシミュレーション座標へ近似して変換しています。マットの格子幅は写真からの概算です。SO-ARM100を別の場所に置いた場合は、シーンXMLのパスを指定します。
 
 ```bash
 python examples/tutorial/rl/hilserl_so100/simulate_so101_coffee.py \
