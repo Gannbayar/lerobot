@@ -24,7 +24,7 @@ LeRobot の HIL-SERL（Human-in-the-Loop Sample-Efficient Reinforcement Learning
 
 シミュレーションには目的の異なる2つの方法があります。**HIL-SERL の操作手順を練習する環境は Franka Panda** です。SO-101 の形を確認するだけなら、公式 MuJoCo モデルを別ビューアで開けます。後者はロボットの見た目を確認する方法で、HIL-SERLのタスク環境ではありません。
 
-OS別のインストール・起動手順: [macOS](README_macOS_ja.md) / [Linux](README_Linux_ja.md)。SO-101、紙コップ、コーヒー、砂糖ブロックを含むシーンは `simulate_so101_coffee.py` で開きます。紙コップは上径7.3 cm・底径5 cm・高さ8 cmです。550×400 mmの青黒チェックマットはロボット正面のアームが届く側に置いています。MuJoCoビューア上部の **Camera** メニューで `robot_camera`、`side_camera`、`front_camera` を選ぶと視点を切り替えられます。これは仮想ビュー視点で、HIL-SERLのカメラ画像入力とは別です。カメラ位置とマットの格子幅は配置図・写真からの概算です。
+OS別のインストール・起動手順: [macOS](README_macOS_ja.md) / [Linux](README_Linux_ja.md)。SO-101、紙コップ、コーヒー、砂糖ブロックを含むシーンは `simulate_so101_coffee.py` で開きます。紙コップは上径7.3 cm・底径5 cm・高さ8 cmです。550×400 mmの青黒チェックマットはロボット正面のアームが届く側に置いています。MuJoCoビューア上部の **Camera** メニューで `wrist_camera`、`robot_camera`、`side_camera`、`front_camera` を選べます。手首カメラはグリッパーに追従し、他の3台は配置図にある位置・高さからマットへ傾けた固定視点です。仮想カメラの視点切替であり、HIL-SERLのカメラ画像入力とは別です。カメラ位置とマットの格子幅は配置図・写真からの概算です。
 
 ### SO-101 のモデルを MuJoCo で表示する
 
