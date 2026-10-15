@@ -22,7 +22,25 @@ LeRobot の HIL-SERL（Human-in-the-Loop Sample-Efficient Reinforcement Learning
 
 ## 実機をつなぐ前にシミュレーションする
 
-LeRobot の `gym_hil` シミュレーターは **SO-100 ではなく、MuJoCo 上の Franka Panda** です。HIL-SERL の操作手順を練習するのに使えますが、SO-100 と同じ関節や動きにはなりません。Mac ではまずキーボード操作の画面を開きます。オンライン学習は公式ガイドが NVIDIA GPU を必要環境としているため、M2 Mac ではシミュレーションの操作確認までにして、学習は NVIDIA GPU のあるPCで行ってください。
+シミュレーションには目的の異なる2つの方法があります。**HIL-SERL の操作手順を練習する環境は Franka Panda** です。SO-101 の形を確認するだけなら、公式 MuJoCo モデルを別ビューアで開けます。後者はロボットの見た目を確認する方法で、HIL-SERLのタスク環境ではありません。
+
+### SO-101 のモデルを MuJoCo で表示する（macOS）
+
+公式の [SO-ARM100 リポジトリ](https://github.com/TheRobotStudio/SO-ARM100)には SO-101 の MuJoCo モデルがあります。以下はモデルのシーンを表示する手順です。すでに `SO-ARM100` をダウンロード済みなら `git clone` は飛ばし、その場所を最後のコマンドに指定してください。
+
+```bash
+cd ~
+git clone --depth 1 https://github.com/TheRobotStudio/SO-ARM100.git
+cd /Volumes/ssd_sata/lerobot
+source .venv/bin/activate
+mjpython -m mujoco.viewer --mjcf="$HOME/SO-ARM100/Simulation/SO101/scene.xml"
+```
+
+MuJoCo のシーンに SO-101 のモデルが表示されます。このビューアには HIL-SERL の Panda 用キーボード操作や、学習・データ収集機能はありません。LeIsaac / Isaac Lab には SO-101 のタスク環境もありますが、公式セットアップは CUDA 対応環境を使います。M2 Mac で動かす場合は公式の[クラウドシミュレーション案内](https://github.com/huggingface/lerobot/blob/main/docs/source/envhub_leisaac.mdx)を確認してください。
+
+### HIL-SERL の操作をシミュレーションする
+
+LeRobot の `gym_hil` シミュレーターは MuJoCo 上の **Franka Panda** です。HIL-SERL の操作の流れは試せますが、SO-101 と同じ関節や動きにはなりません。オンライン学習は公式ガイドが NVIDIA GPU を必要環境としているため、M2 Mac では操作の確認までにしてください。
 
 リポジトリのルートで依存関係を入れます。前の節で LeRobot 用 `.venv` を作っていれば、それを有効にして使います。macOS で MuJoCo の画面を開くときは、通常の `python` ではなく MuJoCo 付属の `mjpython` を使います。これは MuJoCo の `launch_passive` が macOS では `mjpython` 起動を要求するためです（[MuJoCo 公式ドキュメント](https://github.com/google-deepmind/mujoco/blob/main/doc/python.rst)）。
 
