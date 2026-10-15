@@ -54,18 +54,39 @@ def build_model(scene_path: Path) -> mujoco.MjModel:
     # horizontal is the robot's lateral axis and down-page points along +X.
     camera_focus = world.add_body(name="camera_focus", pos=[mat_center_x, mat_center_y, 0.035])
 
-    def add_layout_camera(name: str, lateral_mm: float, forward_mm: float, height_mm: float) -> None:
+    def add_layout_camera(
+        name: str, lateral_mm: float, forward_mm: float, height_mm: float, fovy: float
+    ) -> None:
         camera = world.add_camera(
             name=name,
             pos=[forward_mm / 1000.0, lateral_mm / 1000.0, height_mm / 1000.0],
+            fovy=fovy,
         )
         camera.mode = mujoco.mjtCamLight.mjCAMLIGHT_TARGETBODY
         camera.targetbody = "camera_focus"
 
-    # Approximate the three camera positions and heights marked in the layout PPTX.
-    add_layout_camera("robot_camera", lateral_mm=65, forward_mm=55, height_mm=610)
-    add_layout_camera("side_camera", lateral_mm=-385, forward_mm=220, height_mm=440)
-    add_layout_camera("front_camera", lateral_mm=400, forward_mm=140, height_mm=125)
+    # Aim each fixed camera at the work area. MuJoCo computes its downward tilt
+    # from this target and the measured camera position.
+    add_layout_camera(
+        "robot_camera", lateral_mm=65, forward_mm=55, height_mm=610, fovy=58
+    )
+    add_layout_camera(
+        "side_camera", lateral_mm=-385, forward_mm=220, height_mm=440, fovy=60
+    )
+    add_layout_camera(
+        "front_camera", lateral_mm=400, forward_mm=140, height_mm=125, fovy=75
+    )
+
+    # A wrist-mounted viewpoint follows the moving gripper and keeps the work
+    # area in view, like a close-up camera mounted near the robot's hand.
+    gripper = spec.body("gripper")
+    gripper.add_camera(
+        name="wrist_camera",
+        pos=[0.0, 0.035, 0.035],
+        mode=mujoco.mjtCamLight.mjCAMLIGHT_TARGETBODY,
+        targetbody="camera_focus",
+        fovy=70.0,
+    )
 
     # Dimensions supplied by the user: 73 mm top, 50 mm bottom, 80 mm tall.
     cup_height = 0.080
@@ -152,7 +173,8 @@ def main() -> None:
     data = mujoco.MjData(model)
     print(
         "SO-101 coffee scene ready. Use Control to move the joints and the Camera menu "
-        "to choose robot_camera, side_camera, or front_camera; close the viewer to exit."
+        "to choose wrist_camera, robot_camera, side_camera, or front_camera; "
+        "close the viewer to exit."
     )
     mujoco.viewer.launch(model, data)
 
