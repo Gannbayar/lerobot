@@ -1,5 +1,7 @@
 # SO-100 で学ぶ HIL-SERL
 
+Linux実機を接続するところから評価まで順に進める場合は、[Linux実機HIL-SERLガイドブック](GUIDEBOOK_Linux_ja.md)を使ってください。このREADMEにはPS4操作、シミュレーション、各設定JSONの詳細をまとめています。
+
 LeRobot の HIL-SERL（Human-in-the-Loop Sample-Efficient Reinforcement Learning）を、SO-100 実機で学ぶための教材入口です。HIL-SERL は、少量の人間のデモで報酬分類器を学習し、実機での強化学習中に人が介入して方策を導く手法です。
 
 ## 対象
