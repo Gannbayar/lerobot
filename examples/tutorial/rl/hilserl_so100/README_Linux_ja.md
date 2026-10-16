@@ -1,5 +1,7 @@
 # LinuxでSO-101 / HIL-SERLシミュレーション
 
+実機のUSB接続からデモ収録・学習・評価まで進める場合は、[Linux実機HIL-SERLガイドブック](GUIDEBOOK_Linux_ja.md)を参照してください。このページはシミュレーションの起動方法を説明します。
+
 この手順はMuJoCoのGUIを表示できるLinuxデスクトップ向けです。SO-101のシーン表示と、HIL-SERL公式シミュレーターは別の環境です。
 
 ## 1. LeRobot環境を準備する
