@@ -276,7 +276,9 @@ class GamepadController(InputController):
         if self.controller is None or not self.running:
             return
 
-        api = self.controller_api
+        # pygame 2.6 exposes SDL controller button/axis constants on the
+        # top-level pygame module, not on pygame._sdl2.controller.
+        api = self.pygame
         self.pygame.event.pump()
         try:
             button_states = {
@@ -312,7 +314,7 @@ class GamepadController(InputController):
         if self.controller is None or not self.running:
             return 0.0, 0.0, 0.0
 
-        api = self.controller_api
+        api = self.pygame
         left_x = self._normalize_stick_axis(self.controller.get_axis(api.CONTROLLER_AXIS_LEFTX))
         left_y = self._normalize_stick_axis(self.controller.get_axis(api.CONTROLLER_AXIS_LEFTY))
         right_y = self._normalize_stick_axis(self.controller.get_axis(api.CONTROLLER_AXIS_RIGHTY))
