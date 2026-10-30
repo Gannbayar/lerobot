@@ -63,7 +63,7 @@ source .venv/bin/activate
 pip install -e ".[hilserl]"
 ```
 
-設定ファイル `examples/tutorial/rl/hilserl_so100/gym_hil_sim.json` を使います。`robot` と `teleop` は不要です。シミュレーター内蔵のキーボード操作を使い、データセットは作らず、学習もしない表示・操作確認用の設定です。
+設定ファイル `examples/tutorial/rl/hilserl_so100/gym_hil_sim.json` を使います。`robot` と `teleop` は不要です。シミュレーター内蔵のキーボード操作を使い、データセットを作らず画面と操作を確認します。これはSO-101、紙カップ、コーヒー、砂糖ブロックを含むこのリポジトリ独自の実験環境です。標準の `gym_hil` タスクはFranka Pandaです。
 
 macOS:
 
@@ -79,7 +79,7 @@ python -m lerobot.rl.gym_manipulator \
   --config_path examples/tutorial/rl/hilserl_so100/gym_hil_sim.json
 ```
 
-ウィンドウが開いたら、矢印キーと修飾キーは押している間だけ動きます。Enter と Esc は現在のエピソードをそれぞれ成功・失敗として終了します。Esc はアプリ終了ではありません。シミュレーター自体を終了するときはターミナルで `Ctrl+C` を押します。
+ウィンドウが開いたら、最初にSpaceを押して介入を有効にします。矢印キーと修飾キーは押している間だけ動きます。Enterで成功、Escで失敗として現在のエピソードを終了します。終了表示の案内にはキー表記の誤りがあり、実際のキーボードコントローラー実装ではEscが失敗として割り当てられています。シミュレーター自体を終了するときはターミナルで `Ctrl+C` を押します。
 
 | キー | 動作 |
 | --- | --- |
@@ -91,7 +91,27 @@ python -m lerobot.rl.gym_manipulator \
 | Space | 介入モードを切り替える |
 | R | エピソードを記録し直す |
 
-シミュレーターは Franka Panda 用なので、実ロボットのID `gray_leader` / `white_follower` はここでは使いません。PS4で試す場合は設定の `task` を `PandaPickCubeGamepad-v0` に切り替えます。ゲームパッド操作は gym-hil 側のマッピングが使われ、LeRobot 実機用 PS4 マッピングとは別です。
+PS4ゲームパッド操作はまだこのSO-101カスタムシミュレーションに接続していません。ここではキーボードを使います。
+
+### SO-101シミュレーションで成功・失敗デモを収録する
+
+次の設定で20エピソードをローカル保存します。Enterで成功、Escで失敗をラベル付けします。収録を始める前に、砂糖をカップに入れた状態と入っていない状態を成功・失敗として区別できるようにします。
+
+```bash
+mjpython -m lerobot.rl.gym_manipulator \
+  --config_path examples/tutorial/rl/hilserl_so100/gym_hil_sim_record.json
+```
+
+Linuxでは `mjpython` の代わりに `python` を使います。保存先は `data/so101_coffee_keyboard_demos` です。Rerunで確認するには次を実行します。
+
+```bash
+lerobot-dataset-viz \
+  --repo-id local/so101_coffee_keyboard_demos \
+  --root data/so101_coffee_keyboard_demos \
+  --episode-index 0
+```
+
+SO-101向けのactor/learner設定は[学習設定ファイル](train_hilserl_so101_sim.json)にあります。Mac上でJSON読み込みとSAC policyの入出力形状を確認しましたが、A6000での学習は未検証です。デモを収録してLinux機へコピーしてから、[Linuxシミュレーションガイド](README_Linux_ja.md)のコマンドで実行します。公式の `gym_hil` 標準シミュレーションタスクはFranka Pandaです。
 
 ### PS4（DualShock 4）の操作
 
