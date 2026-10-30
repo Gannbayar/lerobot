@@ -318,13 +318,23 @@ def make_robot_env(cfg: HILSerlRobotEnvConfig) -> tuple[gym.Env, Any]:
         use_gripper = cfg.processor.gripper.use_gripper if cfg.processor.gripper is not None else True
         gripper_penalty = cfg.processor.gripper.gripper_penalty if cfg.processor.gripper is not None else 0.0
 
-        env = gym.make(
-            f"gym_hil/{cfg.task}",
-            image_obs=True,
-            render_mode="human",
-            use_gripper=use_gripper,
-            gripper_penalty=gripper_penalty,
-        )
+        if cfg.task == "SO101CoffeeKeyboard-v0":
+            from examples.tutorial.rl.hilserl_so100.gym_so101_coffee import make_so101_coffee
+
+            env = make_so101_coffee(
+                image_obs=True,
+                render_mode="human",
+                use_gripper=use_gripper,
+                gripper_penalty=gripper_penalty,
+            )
+        else:
+            env = gym.make(
+                f"gym_hil/{cfg.task}",
+                image_obs=True,
+                render_mode="human",
+                use_gripper=use_gripper,
+                gripper_penalty=gripper_penalty,
+            )
 
         return env, None
 
@@ -601,7 +611,11 @@ def control_loop(
 
     dataset = None
     if cfg.mode == "record":
-        action_features = teleop_device.action_features
+        action_features = (
+            teleop_device.action_features
+            if teleop_device is not None
+            else {"dtype": "float32", "shape": tuple(env.action_space.shape), "names": None}
+        )
         features = {
             ACTION: action_features,
             REWARD: {"dtype": "float32", "shape": (1,), "names": None},
