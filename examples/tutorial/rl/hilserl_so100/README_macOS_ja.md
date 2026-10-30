@@ -41,11 +41,11 @@ python examples/tutorial/rl/hilserl_so100/simulate_so101_coffee.py \
   --scene "$HOME/SO-ARM100/Simulation/SO101/scene.xml"
 ```
 
-紙コップは上の直径7.3 cm、底の直径5 cm、高さ8 cmに合わせた白い簡易形状です。壁はMuJoCoの標準形状を組み合わせて近似しています。コーヒーは色と質量を持つ剛体で、液体の揺れやこぼれは計算しません。砂糖ブロックは約18 mm角の剛体です。このシーンはSO-101の姿勢や物体との接触を確認するもので、HIL-SERL用タスクや学習設定は含みません。
+紙コップは上の直径7.3 cm、底の直径5 cm、高さ8 cmに合わせた白い簡易形状です。壁はMuJoCoの標準形状を組み合わせて近似しています。コーヒーは色と質量を持つ剛体で、液体の揺れやこぼれは計算しません。砂糖ブロックは約18 mm角の剛体です。
 
-## 4. HIL-SERLのシミュレーションを開く
+## 4. SO-101をHIL操作してデモを収録する
 
-LeRobotの `gym_hil` 環境はSO-101ではなくFranka Pandaです。macOSでMuJoCoの `launch_passive` を使うため、こちらは `python` ではなく `mjpython` で起動します。
+このリポジトリには、SO-101のシーンをHILキーボード操作とLeRobotデータセット収録につなぐ実験用環境があります。macOSではMuJoCo GUIを `mjpython` で起動します。
 
 ```bash
 cd /path/to/lerobot
@@ -54,7 +54,23 @@ mjpython -m lerobot.rl.gym_manipulator \
   --config_path examples/tutorial/rl/hilserl_so100/gym_hil_sim.json
 ```
 
-この画面はHIL-SERLの操作手順を試すためのPanda用です。SO-101のモデルを動かしたい場合は、上の専用シーンを使ってください。詳細なHIL-SERL実機手順と安全上の注意は[共通ガイド](README_ja.md)を参照してください。
+成功・失敗デモを保存する場合は収録用設定を起動します。最初にSpaceで介入を有効にし、砂糖をカップに入れる試行を行います。Enterで成功、Escで失敗を記録します。
 
-このMacの実行ログではPanda版が制御ループ開始直後に `zsh: trace trap` で終了しました。SO-101のモデルシーンとは別の問題です。同じエラーが出る場合は、HIL-SERLシミュレーターはLinuxデスクトップで起動してください。
+```bash
+mjpython -m lerobot.rl.gym_manipulator \
+  --config_path examples/tutorial/rl/hilserl_so100/gym_hil_sim_record.json
+```
+
+初回は20試行を `data/so101_coffee_keyboard_demos` に保存します。収録の中身は次で確認できます。
+
+```bash
+lerobot-dataset-viz \
+  --repo-id local/so101_coffee_keyboard_demos \
+  --root data/so101_coffee_keyboard_demos \
+  --episode-index 0
+```
+
+このデータは手動ラベル付きの初期デモです。A6000 Linux機で学習する場合は[学習用設定](train_hilserl_so101_sim.json)をLinux側にも配置し、データセットをその設定の`dataset.root`に置きます。GPUでのactor/learner実行はまだ検証できていません。公式 `gym_hil` 標準タスクはFranka Pandaです。実機手順と安全上の注意は[共通ガイド](README_ja.md)を参照してください。
+
+この作業環境では `mjpython` 自体がコード実行時に終了コード134で異常終了し、GUIとカメラ画像の表示までは確認できませんでした。ターミナルからも同じ終了になる場合、収録はA6000搭載Linux機で実行してください。
 
