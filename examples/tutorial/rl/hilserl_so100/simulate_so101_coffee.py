@@ -81,7 +81,7 @@ def build_model(scene_path: Path) -> mujoco.MjModel:
     # axis in gripper-local coordinates so wrist_roll rotates the whole camera
     # pose; TARGETBODY mode would override that local orientation.
     gripper = spec.body("gripper")
-    wrist_camera_pos = [-0.0362675, 0.02516503, 0.0261]
+    wrist_camera_pos = [-0.01, 0.08, -0.03]
     wrist_camera_aim = [-0.0079, -0.000218121, -0.0981274]
     wrist_camera_zaxis = [
         wrist_camera_pos[axis] - wrist_camera_aim[axis] for axis in range(3)
