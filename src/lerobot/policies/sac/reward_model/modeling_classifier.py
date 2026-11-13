@@ -15,6 +15,7 @@
 # limitations under the License.
 
 import logging
+from typing import Any
 
 import torch
 from torch import Tensor, nn
@@ -107,9 +108,14 @@ class Classifier(PreTrainedPolicy):
     def __init__(
         self,
         config: RewardClassifierConfig,
+        dataset_stats: dict[str, dict[str, Tensor]] | None = None,
+        dataset_meta: Any = None,
     ):
         from transformers import AutoModel
 
+        # The policy factory passes dataset metadata to policies that need it.
+        # The classifier uses dataset statistics in its processor, not in the model.
+        _ = dataset_stats, dataset_meta
         super().__init__(config)
         self.config = config
 
