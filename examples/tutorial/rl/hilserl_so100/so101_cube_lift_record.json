@@ -1,0 +1,79 @@
+{
+  "env": {
+    "name": "real_robot",
+    "fps": 10,
+    "robot": {
+      "type": "so101_follower",
+      "port": "/dev/ttyACM0",
+      "id": "so101_follower",
+      "use_degrees": true,
+      "max_relative_target": 2.0,
+      "cameras": {
+        "front": {
+          "type": "opencv",
+          "index_or_path": "/dev/v4l/by-id/usb-Intel_R__RealSense_TM__Depth_Camera_435_Intel_R__RealSense_TM__Depth_Camera_435_952323020953-video-index0",
+          "fps": 30,
+          "width": 640,
+          "height": 480
+        }
+      }
+    },
+    "teleop": {
+      "type": "gamepad",
+      "use_gripper": true
+    },
+    "processor": {
+      "control_mode": "gamepad",
+      "image_preprocessing": {
+        "crop_params_dict": {},
+        "resize_size": [
+          128,
+          128
+        ]
+      },
+      "gripper": {
+        "use_gripper": true,
+        "gripper_penalty": 0.0
+      },
+      "reset": {
+        "reset_time_s": 5.0,
+        "control_time_s": 30.0,
+        "terminate_on_success": true
+      },
+      "inverse_kinematics": {
+        "urdf_path": "../work/SO-ARM100/Simulation/SO101/so101_new_calib.urdf",
+        "target_frame_name": "gripper",
+        "end_effector_bounds": {
+          "min": [
+            0.1155,
+            -0.0044,
+            0.0321
+          ],
+          "max": [
+            0.1755,
+            0.0556,
+            0.0721
+          ]
+        },
+        "end_effector_step_sizes": {
+          "x": 0.003,
+          "y": 0.003,
+          "z": 0.003
+        }
+      },
+      "observation": {
+        "display_cameras": true
+      }
+    }
+  },
+  "dataset": {
+    "repo_id": "local/so101_cube_lift_demo",
+    "root": "data/so101_cube_lift_demo",
+    "task": "pick up the cube and lift it",
+    "num_episodes_to_record": 10,
+    "replay_episode": null,
+    "push_to_hub": false
+  },
+  "mode": "record",
+  "device": "cpu"
+}
