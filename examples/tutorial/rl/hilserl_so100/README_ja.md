@@ -294,6 +294,15 @@ python -m lerobot.rl.crop_dataset_roi \
 
 #### 6. 報酬分類器を学習する
 
+画像で確認した `data/so100_reward_labels_1st_cleaned` のように、カメラ名が `naname` のデータセットには専用設定を使えます。エピソード処理後の画像サイズが128×128であることを `meta/info.json` で確認してください。
+
+```bash
+CUDA_VISIBLE_DEVICES=0 lerobot-train \\
+  --config_path examples/tutorial/rl/hilserl_so100/reward_classifier_so100_1st_cleaned.json
+```
+
+
+
 `examples/tutorial/rl/hilserl_so100/reward_classifier_train.json` を作り、カメラ名 `front` と前段で作った dataset を指定します。複数カメラなら `input_features` に各カメラを追加し、`num_cameras` も同じ数にします。
 
 ```json
