@@ -30,6 +30,6 @@
   "save_checkpoint": true,
   "eval_freq": 0,
   "wandb": {
-    "enable": false
+    "enable": true
   }
 }
